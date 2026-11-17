@@ -99,7 +99,7 @@ if [[ -n "$(find "$APP_DIR" -type l)" ]]; then
     exit 1
 fi
 
-cp -X "$PROJECT_DIR/distribution/Установка.txt" "$IMAGE_DIR/Установка.txt"
+cp -X "$PROJECT_DIR/distribution/Установка.txt" "$IMAGE_DIR/INSTALL.txt"
 ln -s /Applications "$IMAGE_DIR/Applications"
 
 ditto -c -k --norsrc --noextattr --noacl \
