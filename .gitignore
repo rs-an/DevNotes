@@ -1,0 +1,53 @@
+# macOS and editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Swift build products and local settings
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+
+# Generated apps and release packages
+/dist/
+/releases/
+*.app/
+*.dmg
+
+# Local data and credentials
+.env
+.env.*
+!.env.example
+notes.json
+*.vault
+*.p12
+*.p8
+*.mobileprovision
+
+# Private files, backups and local tooling
+*.pem
+*.key
+*.pfx
+*.keychain
+*.keychain-db
+*.provisionprofile
+*.log
+*.bak
+*.backup
+*.zip
+*.tar
+*.gz
+*.7z
+*.sqlite*
+*.db
+.ssh/
+.aws/
+.codex/
+.agents/
+
+# Locally retained icon variants; builds use Assets/AppIcon.png
+/Assets/AppIcon.iconset/
+/Assets/DevNotes.iconset/
