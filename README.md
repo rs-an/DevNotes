@@ -1,34 +1,34 @@
 # DevNotes
 
-<img src="Assets/AppIcon.png" width="96" alt="Иконка DevNotes">
+<img src="Assets/AppIcon.png" width="96" alt="DevNotes app icon">
 
-Минималистичная записная книжка для Mac. Сохраняйте идеи, фрагменты кода и задачи в заметках — всё под рукой, без аккаунта и облака.
+A minimal note-taking app for Mac. Keep ideas, code snippets, and tasks together — no account or cloud required.
 
-## Что умеет
+## Features
 
-- Текст, код, чек-листы, изображения и таблицы в одной заметке.
-- Поиск, закрепление и цветные лейблы для порядка.
-- Напоминания и голосовая диктовка на русском.
-- Экспорт таблиц в CSV и Excel.
-- Автосохранение и корзина с восстановлением.
-- Светлая и тёмная тема.
+- Text, code, checklists, images, and tables in a single note.
+- Search, pinned notes, and colorful labels.
+- Reminders and on-device voice dictation in Russian.
+- Table export to CSV and Excel.
+- Autosave and a trash folder for restoring deleted notes.
+- Light and dark themes.
 
-Заметки хранятся на вашем Mac в зашифрованном виде. Режимы входа: «Только Touch ID», «Touch ID или пароль Mac», «Без блокировки».
+Notes are encrypted and stored locally on your Mac. Choose how to unlock the app: Touch ID only, Touch ID or your Mac password, or no app lock.
 
-## Скачать и установить
+## Download and Install
 
-Для **macOS 14 и новее**, Apple Silicon и Intel.
+Requires **macOS 14 or later**. Supports Apple Silicon and Intel Macs.
 
-1. Откройте раздел **Releases** этого репозитория и скачайте `.dmg` из последнего релиза.
-2. Откройте файл и перетащите **DevNotes** в **Программы**.
-3. Запустите приложение.
+1. Download the `.dmg` from the latest release in this repository's **Releases** section.
+2. Open it and drag **DevNotes** into **Applications**.
+3. Launch the app.
 
-Сборка пока не прошла проверку Apple. Если macOS блокирует запуск, после попытки открытия перейдите в **Системные настройки → Конфиденциальность и безопасность → Всё равно открыть**.
+The app is not yet notarized by Apple. If macOS blocks it, try opening it once, then go to **System Settings → Privacy & Security → Open Anyway**.
 
-Для диктовки разрешите доступ к микрофону и распознаванию речи, для напоминаний — уведомления. Диктовка доступна, если Mac поддерживает локальное распознавание русского языка.
+Allow microphone and speech recognition access to use dictation, and notifications to receive reminders. Dictation requires on-device Russian speech recognition support on your Mac.
 
-## Технологии
+## Built With
 
 Swift · SwiftUI · AppKit · CryptoKit · Speech · LocalAuthentication
 
-[Сборка из исходников и технические детали](docs/TECHNICAL.md).
+[Build instructions and technical details (in Russian)](docs/TECHNICAL.md).

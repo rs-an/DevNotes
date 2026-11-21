@@ -7,7 +7,7 @@ export CLANG_MODULE_CACHE_PATH="$PROJECT_DIR/.build/checks-module-cache"
 CHECK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/devnotes-checks.XXXXXX")"
 trap 'rm -rf "$CHECK_DIR"' EXIT
 
-common=(Sources/DevNotes/Models.swift Sources/DevNotes/LabelColor.swift Sources/DevNotes/NotesVault.swift)
+common=(Sources/DevNotes/AppConfiguration.swift Sources/DevNotes/Models.swift Sources/DevNotes/LabelColor.swift Sources/DevNotes/NotesVault.swift)
 swiftc -swift-version 5 -parse-as-library "${common[@]}" Checks/NotesVaultChecks/main.swift -o "$CHECK_DIR/vault"
 "$CHECK_DIR/vault"
 swiftc -swift-version 5 -parse-as-library "${common[@]}" Sources/DevNotes/LaunchAccess.swift Checks/LaunchAccessChecks/main.swift -o "$CHECK_DIR/access"

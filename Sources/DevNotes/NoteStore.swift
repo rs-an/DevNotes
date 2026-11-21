@@ -28,7 +28,7 @@ final class NoteStore: ObservableObject {
     init() {
         let fileManager = FileManager.default
         let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let folder = appSupport.appendingPathComponent("DevNotes", isDirectory: true)
+        let folder = appSupport.appendingPathComponent(AppConfiguration.storageDirectory, isDirectory: true)
         vault = NotesVault(directory: folder)
     }
 
@@ -40,7 +40,11 @@ final class NoteStore: ObservableObject {
         guard !storageReady else { return }
         let vault = vault
         let (archive, key) = try await Task.detached(priority: .userInitiated) {
+            #if DEVNOTES_DEMO
+            try vault.open(initialArchive: { DemoContent.archive() }, keyProvider: { try NotesKeychain.key(allowCreation: $0) })
+            #else
             try vault.open(keyProvider: { try NotesKeychain.key(allowCreation: $0) })
+            #endif
         }.value
         encryptionKey = key
         createdLabels = archive.createdLabels
@@ -56,6 +60,57 @@ final class NoteStore: ObservableObject {
         }
         reminderMigrationWarning = !(await ReminderManager.shared.redactExistingNotifications())
     }
+
+    #if DEVNOTES_DEMO
+    private var filmBackup: NotesArchive?
+
+    func beginFilmSession() throws {
+        guard storageReady, filmBackup == nil else {
+            throw NSError(domain: "PortfolioFilm", code: 1, userInfo: [NSLocalizedDescriptionKey: "Сначала разблокируйте DevNotes Demo."])
+        }
+        finishEditingSession?()
+        guard flushStorage() else {
+            throw NSError(domain: "PortfolioFilm", code: 2, userInfo: [NSLocalizedDescriptionKey: "Не удалось сохранить текущие демозаметки."])
+        }
+        pendingSave?.cancel()
+        filmBackup = archiveSnapshot()
+        activeNoteID = nil
+        installDemoNotes()
+    }
+
+    func endFilmSession() {
+        guard let backup = filmBackup else { return }
+        activeNoteID = nil
+        notes = backup.notes
+        createdLabels = backup.createdLabels
+        labelIcons = backup.labelIcons
+        labelColors = backup.labelColors
+        filmBackup = nil
+    }
+
+    func resetDemo() throws {
+        guard storageReady, filmBackup == nil else { return }
+        finishEditingSession?()
+        guard flushStorage() else { throw NotesVaultError.verification }
+        // A manual reset is reversible with the existing Keychain key.
+        let backup = vault.file.deletingLastPathComponent()
+            .appendingPathComponent("notes-before-reset-\(UUID().uuidString).vault")
+        try FileManager.default.copyItem(at: vault.file, to: backup)
+        notes.forEach { ReminderManager.shared.cancel(note: $0) }
+        activeNoteID = nil
+        installDemoNotes()
+        scheduleSave()
+    }
+
+    private func installDemoNotes() {
+        let archive = DemoContent.archive()
+        createdLabels = archive.createdLabels
+        labelIcons = archive.labelIcons
+        labelColors = archive.labelColors
+        notes = archive.notes
+    }
+
+    #endif
 
     func createNote(label: String? = nil) {
         finishEditingSession?()
@@ -270,6 +325,9 @@ final class NoteStore: ObservableObject {
     }
 
     private func scheduleSave() {
+        #if DEVNOTES_DEMO
+        guard filmBackup == nil else { return }
+        #endif
         guard storageReady, let key = encryptionKey else { return }
         pendingSave?.cancel()
         let snapshot = archiveSnapshot()
@@ -293,6 +351,9 @@ final class NoteStore: ObservableObject {
 
     @discardableResult
     func flushStorage() -> Bool {
+        #if DEVNOTES_DEMO
+        guard filmBackup == nil else { return true }
+        #endif
         guard storageReady, let key = encryptionKey else { return true }
         pendingSave?.cancel()
         let snapshot = archiveSnapshot()

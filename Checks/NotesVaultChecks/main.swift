@@ -35,6 +35,29 @@ struct NotesVaultChecks {
         })
         precondition(empty.notes.isEmpty)
 
+        // An existing empty vault must stay empty, even when demo seeds change.
+        let (stillEmpty, _) = try vault.open(initialArchive: {
+            fatalError("Existing vault must never be reseeded")
+        }, keyProvider: { _ in key })
+        precondition(stillEmpty.notes.isEmpty)
+
+        // Initial data is written only once, at creation of a separate vault.
+        let seededVault = NotesVault(directory: root.appendingPathComponent("seeded"))
+        var seedNote = Note()
+        seedNote.title = "Bundled example"
+        let (seeded, _) = try seededVault.open(initialArchive: {
+            NotesArchive(notes: [seedNote])
+        }, keyProvider: { _ in key })
+        precondition(seeded.notes.first?.title == seedNote.title)
+        var edited = seeded
+        edited.notes[0].title = "User-edited demo note"
+        edited.notes[0].blocks[0].text = "Keep this edit"
+        try seededVault.save(edited, key: key)
+        let (preserved, _) = try seededVault.open(initialArchive: {
+            fatalError("An update must not replace edited demo notes")
+        }, keyProvider: { _ in key })
+        precondition(preserved.notes == edited.notes)
+
         var note = Note()
         note.title = "Synthetic note"
         note.blocks = [.text("text"), .code("code"), .image(marker), .table(), .checklist("task"), .bulletedList()]
