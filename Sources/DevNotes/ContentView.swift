@@ -137,9 +137,10 @@ private struct NotesHomeView: View {
             Divider().opacity(0.5)
 
             GeometryReader { geometry in
+              let displayedNotes = visibleNotes
               HStack(spacing: 0) {
                 Group {
-                    if visibleNotes.isEmpty {
+                    if displayedNotes.isEmpty {
                         emptyState
                     } else {
                         ScrollView {
@@ -148,7 +149,7 @@ private struct NotesHomeView: View {
                                 alignment: .leading,
                                 spacing: 18
                             ) {
-                                ForEach(visibleNotes) { note in
+                                ForEach(displayedNotes) { note in
                                     NoteCard(note: note, isInTrash: showingTrash)
                                         .onTapGesture {
                                             if !showingTrash { store.activeNoteID = note.id }
@@ -1479,11 +1480,8 @@ private struct BlockEditor: View {
                 case .bulletedList:
                     BulletedListEditor(
                         items: Binding(
-                            get: { block.bulletItems ?? block.resolvedBulletItems },
-                            set: {
-                                block.bulletItems = $0
-                                block.listItems = nil
-                            }
+                            get: { block.resolvedBulletItems },
+                            set: { block.bulletItems = $0 }
                         ),
                         isFocused: $isFocused,
                         reminderMode: reminderMode,

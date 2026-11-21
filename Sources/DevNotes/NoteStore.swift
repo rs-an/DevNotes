@@ -16,6 +16,7 @@ final class NoteStore: ObservableObject {
     @Published private(set) var labelIcons: [String: String] = [:]
 
     private var pendingSave: DispatchWorkItem?
+    private var saveID: UUID?
     private let vault: NotesVault
     private let saveQueue = DispatchQueue(label: "DevNotes.encrypted-save", qos: .utility)
     private var encryptionKey: SymmetricKey?
@@ -53,7 +54,7 @@ final class NoteStore: ObservableObject {
         load(archive.notes)
         createdLabels.forEach { ensureLabelColor(for: $0) }
         storageReady = true
-        scheduleSave()
+        if notes != archive.notes || labelColors.count != archive.labelColors.count { scheduleSave() }
         if let pending = pendingReminder {
             pendingReminder = nil
             openReminder(noteID: pending.noteID, targetID: pending.targetID)
@@ -99,7 +100,6 @@ final class NoteStore: ObservableObject {
         notes.forEach { ReminderManager.shared.cancel(note: $0) }
         activeNoteID = nil
         installDemoNotes()
-        scheduleSave()
     }
 
     private func installDemoNotes() {
@@ -199,16 +199,12 @@ final class NoteStore: ObservableObject {
         }) else { return }
 
         labelColors[label] = .random()
-        saveLabelColors()
+        scheduleSave()
     }
 
     func setLabelColor(_ color: LabelColor, for label: String) {
         let key = labelColors.keys.first { $0.localizedCaseInsensitiveCompare(label) == .orderedSame } ?? label
         labelColors[key] = color
-        saveLabelColors()
-    }
-
-    private func saveLabelColors() {
         scheduleSave()
     }
 
@@ -253,7 +249,6 @@ final class NoteStore: ObservableObject {
         createdLabels.removeAll(where: matches)
         labelIcons = labelIcons.filter { !matches($0.key) }
         labelColors = labelColors.filter { !matches($0.key) }
-        saveLabelColors()
         scheduleSave()
     }
 
@@ -332,11 +327,21 @@ final class NoteStore: ObservableObject {
         pendingSave?.cancel()
         let snapshot = archiveSnapshot()
         let vault = vault
+        let id = UUID()
+        saveID = id
         let work = DispatchWorkItem { [weak self] in
-            do { try vault.save(snapshot, key: key) }
-            catch {
+            do {
+                try vault.save(snapshot, key: key)
                 Task { @MainActor in
-                    self?.storageError = "Не удалось сохранить зашифрованные заметки. Данные пока остаются в памяти. Не закрывайте приложение; повторите сохранение."
+                    guard let self, self.saveID == id else { return }
+                    self.pendingSave = nil
+                    self.saveID = nil
+                    self.storageError = nil
+                }
+            } catch {
+                Task { @MainActor in
+                    guard let self, self.saveID == id else { return }
+                    self.storageError = "Не удалось сохранить зашифрованные заметки. Данные пока остаются в памяти. Не закрывайте приложение; повторите сохранение."
                 }
             }
         }
@@ -354,11 +359,13 @@ final class NoteStore: ObservableObject {
         #if DEVNOTES_DEMO
         guard filmBackup == nil else { return true }
         #endif
-        guard storageReady, let key = encryptionKey else { return true }
-        pendingSave?.cancel()
+        guard let pendingSave, let key = encryptionKey else { return true }
+        pendingSave.cancel()
+        saveID = nil
         let snapshot = archiveSnapshot()
         do {
             try saveQueue.sync { try vault.save(snapshot, key: key) }
+            self.pendingSave = nil
             storageError = nil
             return true
         } catch {
