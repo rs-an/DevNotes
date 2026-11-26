@@ -52,4 +52,20 @@ struct LabelColor: Codable {
             dark: RGB(NSColor(calibratedHue: hue, saturation: 0.38, brightness: 0.87, alpha: 1))
         )
     }
+    #if DEVNOTES_DEMO
+    static func demoPalette(_ index: Int) -> LabelColor {
+        let pairs: [(RGB, RGB)] = [
+            (RGB(0.74, 0.31, 0.20), RGB(0.95, 0.49, 0.35)),
+            (RGB(0.28, 0.43, 0.61), RGB(0.47, 0.64, 0.82)),
+            (RGB(0.34, 0.49, 0.36), RGB(0.51, 0.68, 0.51)),
+            (RGB(0.43, 0.37, 0.57), RGB(0.66, 0.58, 0.79)),
+            (RGB(0.25, 0.48, 0.47), RGB(0.43, 0.68, 0.66)),
+            (RGB(0.61, 0.35, 0.42), RGB(0.80, 0.52, 0.59)),
+            (RGB(0.55, 0.43, 0.23), RGB(0.75, 0.62, 0.39)),
+            (RGB(0.34, 0.43, 0.49), RGB(0.56, 0.66, 0.72))
+        ]
+        let pair = pairs[((index % pairs.count) + pairs.count) % pairs.count]
+        return LabelColor(light: pair.0, dark: pair.1)
+    }
+    #endif
 }

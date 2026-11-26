@@ -4,6 +4,10 @@ import SwiftUI
 @main
 struct DevNotesApp: App {
     @NSApplicationDelegateAdaptor(DevNotesAppDelegate.self) private var appDelegate
+    #if DEVNOTES_DEMO
+    @StateObject private var film = NotesFilm()
+    @State private var confirmingDemoReset = false
+    #endif
     @StateObject private var store: NoteStore
     @StateObject private var access: LaunchAccess
     @StateObject private var dictation: SpeechDictation
@@ -35,9 +39,27 @@ struct DevNotesApp: App {
                 .environmentObject(dictation)
                 .frame(minWidth: 880, minHeight: 620)
                 .background(WindowConfigurator())
+                #if DEVNOTES_DEMO
+                .onAppear { film.attach(store: store, access: access) }
+                .alert("Восстановить демозаметки?", isPresented: $confirmingDemoReset) {
+                    Button("Отмена", role: .cancel) { }
+                    Button("Восстановить", role: .destructive) {
+                        do { try store.resetDemo() }
+                        catch { store.storageError = "Не удалось восстановить демозаметки. " + error.localizedDescription }
+                    }
+                } message: {
+                    Text("Текущие демозаметки будут заменены примерами. Перед заменой сохранится зашифрованная резервная копия.")
+                }
+                #endif
         }
         .defaultSize(width: 1180, height: 760)
         .commands {
+            #if DEVNOTES_DEMO
+            CommandMenu("Демо") {
+                Button("Восстановить демонстрационные данные") { confirmingDemoReset = true }
+                    .disabled(!access.isUnlocked || access.needsSetup)
+            }
+            #endif
             CommandGroup(replacing: .newItem) {
                 Button("Новая заметка") {
                     store.createNote()

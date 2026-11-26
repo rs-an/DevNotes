@@ -49,6 +49,7 @@ struct ContentView: View {
                 }
             }
         }
+        .modifier(AppearanceControl())
         .animation(access.isUnlocked ? .easeOut(duration: 0.18) : nil, value: store.activeNoteID)
         .task { await access.requestAutomaticUnlock() }
         .alert("Проверьте напоминания", isPresented: $store.reminderMigrationWarning) {
@@ -136,9 +137,10 @@ private struct NotesHomeView: View {
             Divider().opacity(0.5)
 
             GeometryReader { geometry in
+              let displayedNotes = visibleNotes
               HStack(spacing: 0) {
                 Group {
-                    if visibleNotes.isEmpty {
+                    if displayedNotes.isEmpty {
                         emptyState
                     } else {
                         ScrollView {
@@ -147,7 +149,7 @@ private struct NotesHomeView: View {
                                 alignment: .leading,
                                 spacing: 18
                             ) {
-                                ForEach(visibleNotes) { note in
+                                ForEach(displayedNotes) { note in
                                     NoteCard(note: note, isInTrash: showingTrash)
                                         .onTapGesture {
                                             if !showingTrash { store.activeNoteID = note.id }
@@ -173,6 +175,14 @@ private struct NotesHomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: .focusSearch)) { _ in
             searchFocused = true
         }
+        #if DEVNOTES_DEMO
+        .onReceive(NotificationCenter.default.publisher(for: .init("PortfolioFilm.notesHome"))) { message in
+            search = message.userInfo?["search"] as? String ?? ""
+            selectedLabel = message.userInfo?["label"] as? String
+            showingTrash = false
+            showPinnedOnly = message.userInfo?["pinned"] as? Bool ?? false
+        }
+        #endif
         .onChange(of: allLabels) { _, labels in
             guard let selectedLabel else { return }
             if !labels.contains(where: { $0.localizedCaseInsensitiveCompare(selectedLabel) == .orderedSame }) {
@@ -754,15 +764,11 @@ private struct CardPreview: View {
                         }
                     case .image:
                         if let data = block.imageData, let image = NSImage(data: data) {
-                            Image(nsImage: image)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxWidth: .infinity)
-                                .clipShape(RoundedRectangle(cornerRadius: 9))
+                            NoteImagePreview(image: image, widthFraction: block.imageWidthFraction)
                         }
                     case .table:
                         MiniTable(table: block.table)
-                            .frame(height: 92)
+                            .frame(height: 84)
                     }
                 }
 
@@ -924,6 +930,13 @@ private struct NoteEditorView: View {
                             .padding(.vertical, 32)
                         }
                         .onAppear { scrollToReminder(using: proxy) }
+                        #if DEVNOTES_DEMO
+                        .onReceive(NotificationCenter.default.publisher(for: .init("PortfolioFilm.notesScroll"))) { _ in
+                            if let last = note.blocks.last {
+                                withAnimation(.easeInOut(duration: 0.8)) { proxy.scrollTo(last.id, anchor: .bottom) }
+                            }
+                        }
+                        #endif
                         .onChange(of: store.reminderTargetID) { _, _ in
                             scrollToReminder(using: proxy)
                         }
@@ -1467,11 +1480,8 @@ private struct BlockEditor: View {
                 case .bulletedList:
                     BulletedListEditor(
                         items: Binding(
-                            get: { block.bulletItems ?? block.resolvedBulletItems },
-                            set: {
-                                block.bulletItems = $0
-                                block.listItems = nil
-                            }
+                            get: { block.resolvedBulletItems },
+                            set: { block.bulletItems = $0 }
                         ),
                         isFocused: $isFocused,
                         reminderMode: reminderMode,
@@ -2190,27 +2200,22 @@ private struct ResizableImageBlock: View {
     @State private var isHovering = false
 
     private var fraction: CGFloat {
-        CGFloat(min(max(widthFraction ?? 1, 0.25), 1))
+        NoteImageSizing.fraction(widthFraction)
     }
 
     private var imageWidth: CGFloat {
-        max(150, availableWidth * fraction)
+        max(1, availableWidth * fraction)
     }
 
     private var imageHeight: CGFloat {
-        let sourceWidth = max(image.size.width, 1)
-        let sourceHeight = max(image.size.height, 1)
-        return imageWidth * sourceHeight / sourceWidth
+        NoteImageSizing.height(for: image, width: imageWidth)
     }
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             ZStack(alignment: .bottomTrailing) {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFit()
+                NoteImageContent(image: image)
                     .frame(width: imageWidth, height: imageHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 HStack(spacing: 5) {
                     if isHovering {

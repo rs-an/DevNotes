@@ -46,7 +46,7 @@ enum NotesKeychain {
     static func key(allowCreation: Bool) throws -> SymmetricKey {
         let identity: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "local.devnotes.notes-encryption.v1",
+            kSecAttrService as String: AppConfiguration.keychainService,
             kSecAttrAccount as String: "notes-aes256-key",
             kSecAttrSynchronizable as String: false
         ]
@@ -85,7 +85,8 @@ struct NotesVault {
     let directory: URL
     var file: URL { directory.appendingPathComponent("notes.vault") }
 
-    func open(keyProvider: (Bool) throws -> SymmetricKey) throws -> (NotesArchive, SymmetricKey) {
+    func open(initialArchive: () -> NotesArchive = { NotesArchive() },
+              keyProvider: (Bool) throws -> SymmetricKey) throws -> (NotesArchive, SymmetricKey) {
         let encryptedExists = FileManager.default.fileExists(atPath: file.path)
         let key = try keyProvider(!encryptedExists)
         if encryptedExists {
@@ -93,7 +94,7 @@ struct NotesVault {
                 from: NotesEncryption.open(Data(contentsOf: file), key: key))
             return (archive, key)
         }
-        let archive = NotesArchive()
+        let archive = initialArchive()
         try save(archive, key: key)
         return (archive, key)
     }

@@ -33,7 +33,10 @@ struct Note: Identifiable, Codable, Equatable {
 
     var isEmpty: Bool {
         title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        blocks.allSatisfy(\.isEmpty)
+        blocks.allSatisfy { block in
+            block.isEmpty && block.reminderAt == nil &&
+            !(block.bulletItems ?? []).contains { $0.reminderAt != nil }
+        }
     }
 
     var textPreview: String {
@@ -65,17 +68,6 @@ extension Note {
         labels = try container.decodeIfPresent([String].self, forKey: .labels) ?? []
     }
 
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(title, forKey: .title)
-        try container.encode(blocks, forKey: .blocks)
-        try container.encode(createdAt, forKey: .createdAt)
-        try container.encode(updatedAt, forKey: .updatedAt)
-        try container.encode(isPinned, forKey: .isPinned)
-        try container.encodeIfPresent(deletedAt, forKey: .deletedAt)
-        try container.encode(labels, forKey: .labels)
-    }
 }
 
 struct NoteBlock: Identifiable, Codable, Equatable {
@@ -101,8 +93,7 @@ struct NoteBlock: Identifiable, Codable, Equatable {
     var reminderAt: Date?
 
     var resolvedBulletItems: [BulletItem] {
-        if let bulletItems { return bulletItems }
-        return (listItems ?? []).map { BulletItem(text: $0) }
+        bulletItems ?? []
     }
 
     var isEmpty: Bool {

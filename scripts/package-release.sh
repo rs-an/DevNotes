@@ -4,9 +4,11 @@ umask 022
 
 SCRIPT_DIR="${0:A:h}"
 PROJECT_DIR="${SCRIPT_DIR:h}"
+source "$SCRIPT_DIR/build-variant.sh" "${1:-app}"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PROJECT_DIR/Info.plist")"
-RELEASE_DIR="$PROJECT_DIR/releases/DevNotes-$VERSION-installer"
-ARTIFACT_NAME="DevNotes-$VERSION-universal-installer"
+ARTIFACT_PREFIX="${APP_NAME// /-}"
+RELEASE_DIR="$PROJECT_DIR/releases/$ARTIFACT_PREFIX-$VERSION-installer"
+ARTIFACT_NAME="$ARTIFACT_PREFIX-$VERSION-universal-installer"
 
 if [[ -e "$RELEASE_DIR" ]]; then
     print -u2 "Release already exists: $RELEASE_DIR (nothing overwritten)."
@@ -26,7 +28,7 @@ cleanup() {
 }
 trap cleanup EXIT
 IMAGE_DIR="$WORK_DIR/image"
-APP_DIR="$IMAGE_DIR/DevNotes.app"
+APP_DIR="$IMAGE_DIR/$APP_NAME.app"
 ICONSET_DIR="$WORK_DIR/AppIcon.iconset"
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 export SDKROOT="$SDK_PATH"
@@ -43,8 +45,8 @@ fi
 for architecture in arm64 x86_64; do
     build_args=(
         --package-path "$PROJECT_DIR"
-        --scratch-path "$PROJECT_DIR/.build/distribution-$architecture"
-        --disable-sandbox -c release -j 1
+        --scratch-path "$PROJECT_DIR/.build/distribution-$VARIANT-$architecture"
+        --disable-sandbox -c release -j 1 "${SWIFT_FLAGS[@]}"
         --triple "$architecture-apple-macosx14.0"
         -Xswiftc -debug-prefix-map -Xswiftc "$PROJECT_DIR=/DevNotes"
         -Xswiftc -file-prefix-map -Xswiftc "$PROJECT_DIR=/DevNotes"
@@ -59,8 +61,7 @@ xcrun lipo -create "$WORK_DIR/DevNotes-arm64" "$WORK_DIR/DevNotes-x86_64" \
     -output "$APP_DIR/Contents/MacOS/DevNotes"
 xcrun strip -S "$APP_DIR/Contents/MacOS/DevNotes"
 chmod 755 "$APP_DIR/Contents/MacOS/DevNotes"
-cp -X "$PROJECT_DIR/Info.plist" "$APP_DIR/Contents/Info.plist"
-cp -X "$PROJECT_DIR/Assets/AppIcon.png" "$APP_DIR/Contents/Resources/AppIcon.png"
+configure_variant_bundle "$APP_DIR"
 
 # Convert the current icon to the native Finder format, without changing its design.
 for size in 16 32 128 256 512; do
@@ -91,6 +92,8 @@ while IFS= read -r bundle_file; do
     case "$relative_file" in
         Contents/Info.plist|Contents/MacOS/DevNotes|Contents/Resources/AppIcon.png|\
         Contents/Resources/AppIcon.icns|Contents/_CodeSignature/CodeResources) ;;
+        Contents/Resources/IconStudy.png)
+            [[ "$VARIANT" == demo ]] || { print -u2 "Demo resource in standard app"; exit 1; } ;;
         *) print -u2 "Unexpected file in app: $relative_file"; exit 1 ;;
     esac
 done < <(find "$APP_DIR" -type f)
@@ -106,16 +109,16 @@ ditto -c -k --norsrc --noextattr --noacl \
     "$IMAGE_DIR" "$WORK_DIR/$ARTIFACT_NAME.zip"
 # Instructions remain in the ZIP and alongside the DMG, not in its main window.
 mkdir -p "$WORK_DIR/dmg/.background"
-ditto --noextattr --noacl "$APP_DIR" "$WORK_DIR/dmg/DevNotes.app"
+ditto --noextattr --noacl "$APP_DIR" "$WORK_DIR/dmg/$APP_NAME.app"
 ln -s /Applications "$WORK_DIR/dmg/Программы"
 swift "$SCRIPT_DIR/dmg-background.swift" "$WORK_DIR/dmg/.background/installer.png"
-hdiutil create -volname DevNotes -srcfolder "$WORK_DIR/dmg" -fs HFS+ -format UDRW \
+hdiutil create -volname "$APP_NAME" -srcfolder "$WORK_DIR/dmg" -fs HFS+ -format UDRW \
     "$WORK_DIR/installer-rw.dmg"
 MOUNT_DIR="$WORK_DIR/mounted"
 mkdir -p "$MOUNT_DIR"
 IMAGE_MOUNTED=1
 hdiutil attach -readwrite -noautoopen -nobrowse -mountpoint "$MOUNT_DIR" "$WORK_DIR/installer-rw.dmg"
-PYTHONPATH="$DMG_TOOLS" python3 "$SCRIPT_DIR/style-dmg.py" "$MOUNT_DIR"
+PYTHONPATH="$DMG_TOOLS" python3 "$SCRIPT_DIR/style-dmg.py" "$MOUNT_DIR" "$APP_NAME"
 sync
 if [[ ! -s "$MOUNT_DIR/.DS_Store" ]]; then
     print -u2 "Installer layout was not saved."
